@@ -13,8 +13,10 @@ from datetime import datetime
 
 init(autoreset=True)
 
-PORT = 8000
-WORKDIR = "/data/data/com.termux/files/home/HCO-Photo-Hide"
+PORT = int(os.environ.get("HCO_PORT", "8000"))
+# Store generated pages and data beside this script so any clone location
+# works on Termux, Linux, and Windows.
+WORKDIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(WORKDIR, "data.json")
 
 # Ensure working directory exists
@@ -35,6 +37,18 @@ def open_youtube_app():
         'am', 'start', '-a', 'android.intent.action.VIEW',
         '-d', 'https://youtube.com/@hackers_colony_tech'
     ])
+
+def open_browser(url):
+    """Open the local server when Termux/Android browser commands are available."""
+    try:
+        if subprocess.run('command -v termux-open-url', shell=True,
+                          capture_output=True).returncode == 0:
+            subprocess.Popen(['termux-open-url', url])
+        elif subprocess.run('command -v am', shell=True,
+                            capture_output=True).returncode == 0:
+            subprocess.Popen(['am', 'start', '-a', 'android.intent.action.VIEW', '-d', url])
+    except OSError:
+        pass
 
 # --- Step 3: Wait for user to return ---
 def wait_for_enter():
@@ -884,15 +898,6 @@ def start_server():
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    # Show tool lock message
-    tool_lock()
-    
-    # Open YouTube app
-    open_youtube_app()
-    
-    # Wait for user to return
-    wait_for_enter()
-    
     # Create HTML pages
     create_html()
     
@@ -914,8 +919,9 @@ if __name__ == "__main__":
         network_url = f"http://localhost:{PORT}"
         print(Fore.YELLOW + "Could not determine network IP, using localhost")
     
-    # Open browser to the local server
-    subprocess.run(['am', 'start', '-a', 'android.intent.action.VIEW', '-d', f'http://localhost:{PORT}'])
+    # Open a browser where Termux/Android supports it; otherwise the URL can
+    # be opened manually from the printed address.
+    open_browser(f'http://localhost:{PORT}')
     
     print(Fore.CYAN + "HCO Photo Hide is now running!")
     print(Fore.CYAN + "Share this URL with others on the same network:")
